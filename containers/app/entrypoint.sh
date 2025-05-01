@@ -94,3 +94,5 @@ if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
     echo "OpenVSCode server binary not found, starting only OpenHands server: $*"
     exec "$@"
   fi
+
+fi
