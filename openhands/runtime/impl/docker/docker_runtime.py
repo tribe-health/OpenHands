@@ -457,13 +457,12 @@ class DockerRuntime(ActionExecutionClient):
 
     @property
     def vscode_url(self) -> str | None:
-        token = super().get_vscode_token()
-        if not token:
-            return None
-
-        # Use simplified path for VSCode URL
-        vscode_url = f'{self._vscode_domain}/vscode/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
-        return vscode_url
+        # If a custom domain is set, use it with /vscode/ path (for reverse proxy setups)
+        # Otherwise, use the direct port (for local/dev)
+        if hasattr(self, "_vscode_domain") and self._vscode_domain and "localhost" not in self._vscode_domain and "127.0.0.1" not in self._vscode_domain:
+            return f'{self._vscode_domain}/vscode/?folder={self.config.workspace_mount_path_in_sandbox}'
+        else:
+            return f'http://localhost:{self._vscode_port}/?folder={self.config.workspace_mount_path_in_sandbox}'
 
     @property
     def web_hosts(self):
