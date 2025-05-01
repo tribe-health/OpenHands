@@ -65,6 +65,14 @@ RUN chown -R openhands:app /app && chmod -R 770 /app
 RUN sudo chown -R openhands:app $WORKSPACE_BASE && sudo chmod -R 770 $WORKSPACE_BASE
 USER openhands
 
+# Download and extract the latest OpenVSCode server release to /openhands/.openvscode-server
+RUN mkdir -p /openhands/.openvscode-server && \
+    LATEST_URL=$(curl -s https://api.github.com/repos/gitpod-io/openvscode-server/releases/latest | grep "browser_download_url.*linux-x64.tar.gz" | cut -d '"' -f 4 | head -n 1) && \
+    curl -L "$LATEST_URL" -o /tmp/openvscode-server.tar.gz && \
+    tar -xzf /tmp/openvscode-server.tar.gz --strip-components=1 -C /openhands/.openvscode-server && \
+    rm /tmp/openvscode-server.tar.gz && \
+    test -x /openhands/.openvscode-server/bin/openvscode-server
+
 ENV VIRTUAL_ENV=/app/.venv \
     PATH="/app/.venv/bin:$PATH" \
     PYTHONPATH='/app'
