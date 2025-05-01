@@ -20,27 +20,55 @@ server {
     }
 
     # VSCode proxy location - using fixed port 40000
+    # OPTION 1: If openvscode-server is started WITHOUT --server-base-path flag (default)
     location /vscode/ {
-        # Proxy to the VSCode server on port 40000
         proxy_pass http://localhost:40000/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
+        proxy_set_header Connection "upgrade";
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_read_timeout 300;
-        
-        # Disable buffering for VSCode
         proxy_buffering off;
+        proxy_hide_header X-Frame-Options;
+        add_header Content-Security-Policy "frame-ancestors *" always;
     }
+
+    # OPTION 2: If you modify start_openvscode.sh to include --server-base-path vscode
+    # Uncomment this and comment out OPTION 1 above
+    # location /vscode/ {
+    #     proxy_pass http://localhost:40000/vscode/;
+    #     proxy_http_version 1.1;
+    #     proxy_set_header Upgrade $http_upgrade;
+    #     proxy_set_header Connection "upgrade";
+    #     proxy_set_header Host $host;
+    #     proxy_set_header X-Forwarded-Proto https;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_read_timeout 300;
+    #     proxy_buffering off;
+    #     proxy_hide_header X-Frame-Options;
+    #     add_header Content-Security-Policy "frame-ancestors *" always;
+    # }
 
     # SSL configuration
     ssl_certificate /etc/letsencrypt/live/openhands.skytok.net/fullchain.pem; # managed by Certbot
     ssl_certificate_key /etc/letsencrypt/live/openhands.skytok.net/privkey.pem; # managed by Certbot
+    
+    # OPTION 1: Include Certbot's SSL options but comment out any conflicting directives in this file
     include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+    
+    # OPTION 2: Comment out the include and define SSL parameters directly here
+    # (Uncomment these if you comment out the include line above)
+    # ssl_protocols TLSv1.2 TLSv1.3;
+    # ssl_prefer_server_ciphers off;
+    # ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+    # ssl_session_timeout 1d;
+    # ssl_session_cache shared:SSL:10m;
+    # ssl_session_tickets off;
 }
 
 # Redirect HTTP to HTTPS

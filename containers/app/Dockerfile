@@ -48,7 +48,7 @@ RUN mkdir -p $FILE_STORE_PATH
 RUN mkdir -p $WORKSPACE_BASE
 
 RUN apt-get update -y \
-    && apt-get install -y curl ssh sudo tini \
+    && apt-get install -y curl ssh sudo supervisor \
     && rm -rf /var/lib/apt/lists/*
 
 # Default is 1000, but OSX is often 501
@@ -106,5 +106,7 @@ USER root
 
 WORKDIR /app
 
-ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]
-CMD ["uvicorn", "openhands.server.listen:app", "--host", "0.0.0.0", "--port", "3000"]
+COPY --chmod=770 ./containers/app/start_openvscode.sh /app/start_openvscode.sh
+COPY ./containers/app/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+ENTRYPOINT ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
