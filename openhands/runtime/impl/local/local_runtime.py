@@ -157,6 +157,14 @@ class LocalRuntime(ActionExecutionClient):
         self._vscode_port = -1
         self._app_ports: list[int] = []
 
+        if os.environ.get('DOCKER_HOST_ADDR'):
+            logger.info(
+                f'Using DOCKER_HOST_IP: {os.environ["DOCKER_HOST_ADDR"]} for local_runtime_url'
+            )
+            self.config.sandbox.local_runtime_url = (
+                f'http://{os.environ["DOCKER_HOST_ADDR"]}'
+            )
+
         self.api_url = f'{self.config.sandbox.local_runtime_url}:{self._host_port}'
         self.status_callback = status_callback
         self.server_process: subprocess.Popen[str] | None = None
@@ -331,12 +339,12 @@ class LocalRuntime(ActionExecutionClient):
         token = super().get_vscode_token()
         if not token:
             return None
-        vscode_url = f'http://localhost:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
+        vscode_url = f'{self.config.sandbox.local_runtime_url}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
         return vscode_url
 
     @property
     def web_hosts(self):
         hosts: dict[str, int] = {}
         for port in self._app_ports:
-            hosts[f'http://localhost:{port}'] = port
+            hosts[f'{self.config.sandbox.local_runtime_url}:{port}'] = port
         return hosts

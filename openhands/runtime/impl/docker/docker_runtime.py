@@ -436,7 +436,7 @@ class DockerRuntime(ActionExecutionClient):
         if not token:
             return None
 
-        vscode_url = f'http://localhost:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
+        vscode_url = f'{self.config.sandbox.local_runtime_url}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
         return vscode_url
 
     @property
@@ -444,7 +444,7 @@ class DockerRuntime(ActionExecutionClient):
         hosts: dict[str, int] = {}
 
         for port in self._app_ports:
-            hosts[f'http://localhost:{port}'] = port
+            hosts[f'{self.config.sandbox.local_runtime_url}:{port}'] = port
 
         return hosts
 
