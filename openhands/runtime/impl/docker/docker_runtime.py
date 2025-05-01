@@ -461,8 +461,8 @@ class DockerRuntime(ActionExecutionClient):
         if not token:
             return None
 
-        # Use path-based routing for VSCode URL
-        vscode_url = f'{self._vscode_domain}/vscode/{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
+        # Use simplified path for VSCode URL
+        vscode_url = f'{self._vscode_domain}/vscode/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
         return vscode_url
 
     @property

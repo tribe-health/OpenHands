@@ -19,14 +19,10 @@ server {
         proxy_read_timeout 300;
     }
 
-    # VSCode proxy location - handles VSCode URLs through path-based routing
-    # This approach avoids the need to listen on thousands of ports
-    location ~ ^/vscode/(\d+)/ {
-        # Extract the port from the location
-        set $vscode_port $1;
-        
-        # Proxy to the VSCode server
-        proxy_pass http://localhost:$vscode_port/;
+    # VSCode proxy location - using fixed port 40000
+    location /vscode/ {
+        # Proxy to the VSCode server on port 40000
+        proxy_pass http://localhost:40000/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
