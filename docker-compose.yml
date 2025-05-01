@@ -5,15 +5,38 @@ services:
       context: ./
       dockerfile: ./containers/app/Dockerfile
     image: openhands:latest
+    # command: ["--host", "0.0.0.0", "--without-connection-token"]
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     container_name: openhands-app-${DATE:-}
     environment:
       - SANDBOX_RUNTIME_CONTAINER_IMAGE=${SANDBOX_RUNTIME_CONTAINER_IMAGE:-docker.all-hands.dev/all-hands-ai/runtime:0.35-nikolaik}
       #- SANDBOX_USER_ID=${SANDBOX_USER_ID:-1234} # enable this only if you want a specific non-root sandbox user but you will have to manually adjust permissions of openhands-state for this user
       - WORKSPACE_MOUNT_PATH=${WORKSPACE_BASE:-$PWD/workspace}
+      - SANDBOX_HOST=openhands.skytok.net
+      - VSCODE_HOST=openhands.skytok.net
+      - OPENHANDS_PUBLIC_URL=https://openhands.skytok.net
+      - EXTERNAL_HOSTNAME=openhands.skytok.net
+      - VSCODE_SERVER_DATA_HOST=openhands.skytok.net
+      - OPENHANDS_BASE_URL=https://openhands.skytok.net
+      - NODE_ENV=production
+      - VSCODE_SERVER_HOST=0.0.0.0
+      - VSCODE_CONNECTION_TOKEN=disabled
+      - VSCODE_SERVER_URL=https://openhands.skytok.net/vscode
+      - VSCODE_USE_HOST_PROXY=true
+      - VSCODE_PROXY_URI=https://openhands.skytok.net
+      - DOCKER_HOST_ADDR=openhands.skytok.net
+    restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "3500:3000"
     extra_hosts:
       - "host.docker.internal:host-gateway"
+      - "openhands.skytok.net:127.0.0.1"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ~/.openhands-state:/.openhands-state
