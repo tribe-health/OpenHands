@@ -157,15 +157,20 @@ class LocalRuntime(ActionExecutionClient):
         self._vscode_port = -1
         self._app_ports: list[int] = []
 
+        # Store the original local_runtime_url for internal connections
+        self._internal_url = 'http://localhost'
+        
+        # Set external URL for client-facing URLs if DOCKER_HOST_ADDR is provided
         if os.environ.get('DOCKER_HOST_ADDR'):
             logger.info(
-                f'Using DOCKER_HOST_IP: {os.environ["DOCKER_HOST_ADDR"]} for local_runtime_url'
+                f'Using DOCKER_HOST_IP: {os.environ["DOCKER_HOST_ADDR"]} for external URLs'
             )
-            self.config.sandbox.local_runtime_url = (
-                f'http://{os.environ["DOCKER_HOST_ADDR"]}'
-            )
+            self._external_url = f'http://{os.environ["DOCKER_HOST_ADDR"]}'
+        else:
+            self._external_url = self.config.sandbox.local_runtime_url
 
-        self.api_url = f'{self.config.sandbox.local_runtime_url}:{self._host_port}'
+        # Always use localhost for internal API connections
+        self.api_url = f'{self._internal_url}:{self._host_port}'
         self.status_callback = status_callback
         self.server_process: subprocess.Popen[str] | None = None
         self.action_semaphore = threading.Semaphore(1)  # Ensure one action at a time
@@ -200,7 +205,7 @@ class LocalRuntime(ActionExecutionClient):
             self._find_available_port(APP_PORT_RANGE_1),
             self._find_available_port(APP_PORT_RANGE_2),
         ]
-        self.api_url = f'{self.config.sandbox.local_runtime_url}:{self._host_port}'
+        self.api_url = f'{self._internal_url}:{self._host_port}'
 
         # Start the server process
         cmd = get_action_execution_server_startup_command(
@@ -339,12 +344,12 @@ class LocalRuntime(ActionExecutionClient):
         token = super().get_vscode_token()
         if not token:
             return None
-        vscode_url = f'{self.config.sandbox.local_runtime_url}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
+        vscode_url = f'{self._external_url}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
         return vscode_url
 
     @property
     def web_hosts(self):
         hosts: dict[str, int] = {}
         for port in self._app_ports:
-            hosts[f'{self.config.sandbox.local_runtime_url}:{port}'] = port
+            hosts[f'{self._external_url}:{port}'] = port
         return hosts
