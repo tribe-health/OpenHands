@@ -48,7 +48,7 @@ RUN mkdir -p $FILE_STORE_PATH
 RUN mkdir -p $WORKSPACE_BASE
 
 RUN apt-get update -y \
-    && apt-get install -y curl ssh sudo \
+    && apt-get install -y curl ssh sudo tini \
     && rm -rf /var/lib/apt/lists/*
 
 # Default is 1000, but OSX is often 501
@@ -106,5 +106,5 @@ USER root
 
 WORKDIR /app
 
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/usr/bin/tini", "--", "/app/entrypoint.sh"]
 CMD ["uvicorn", "openhands.server.listen:app", "--host", "0.0.0.0", "--port", "3000"]
