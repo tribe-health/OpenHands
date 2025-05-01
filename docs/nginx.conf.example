@@ -21,25 +21,8 @@ server {
 
     # VSCode proxy location - using fixed port 40000
     # OPTION 1: If openvscode-server is started WITHOUT --server-base-path flag (default)
-    location /vscode/ {
-        proxy_pass http://localhost:40000/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 300;
-        proxy_buffering off;
-        proxy_hide_header X-Frame-Options;
-        add_header Content-Security-Policy "frame-ancestors *" always;
-    }
-
-    # OPTION 2: If you modify start_openvscode.sh to include --server-base-path vscode
-    # Uncomment this and comment out OPTION 1 above
     # location /vscode/ {
-    #     proxy_pass http://localhost:40000/vscode/;
+    #     proxy_pass http://localhost:40000/;
     #     proxy_http_version 1.1;
     #     proxy_set_header Upgrade $http_upgrade;
     #     proxy_set_header Connection "upgrade";
@@ -52,6 +35,22 @@ server {
     #     proxy_hide_header X-Frame-Options;
     #     add_header Content-Security-Policy "frame-ancestors *" always;
     # }
+
+    # OPTION 2: If you modify start_openvscode.sh to include --server-base-path vscode
+    location /vscode/ {
+        proxy_pass http://localhost:40000/vscode/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300;
+        proxy_buffering off;
+        proxy_hide_header X-Frame-Options;
+        add_header Content-Security-Policy "frame-ancestors *" always;
+    }
 
     # SSL configuration
     ssl_certificate /etc/letsencrypt/live/openhands.skytok.net/fullchain.pem; # managed by Certbot
