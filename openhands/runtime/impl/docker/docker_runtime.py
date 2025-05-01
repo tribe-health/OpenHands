@@ -457,12 +457,19 @@ class DockerRuntime(ActionExecutionClient):
 
     @property
     def vscode_url(self) -> str | None:
-        # If a custom domain is set, use it with /vscode/ path (for reverse proxy setups)
-        # Otherwise, use the direct port (for local/dev)
-        if hasattr(self, "_vscode_domain") and self._vscode_domain and "localhost" not in self._vscode_domain and "127.0.0.1" not in self._vscode_domain:
-            return f'{self._vscode_domain}/vscode/?folder={self.config.workspace_mount_path_in_sandbox}'
+        """
+        Returns the public-facing VSCode URL for the frontend.
+
+        - If CUSTOM_DOMAIN_URL is set (with protocol), always use it and append '/vscode/'.
+        - Otherwise, fallback to 'http://localhost:{self._vscode_port}/vscode/' for local development.
+        - This ensures the frontend never receives a localhost or host.docker.internal URL in production.
+        """
+        if hasattr(self, "_vscode_domain") and self._vscode_domain:
+            # Always use the custom domain if set, for production or reverse proxy setups
+            return f'{self._vscode_domain}/vscode/'
         else:
-            return f'http://localhost:{self._vscode_port}/?folder={self.config.workspace_mount_path_in_sandbox}'
+            # Fallback for local development
+            return f'http://localhost:{self._vscode_port}/vscode/'
 
     @property
     def web_hosts(self):
