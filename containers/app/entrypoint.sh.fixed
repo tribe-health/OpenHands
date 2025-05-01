@@ -1,0 +1,121 @@
+#!/bin/bash
+set -eo pipefail
+
+echo "Starting OpenHands..."
+if [[ $NO_SETUP == "true" ]]; then
+  echo "Skipping setup, running as $(whoami)"
+  "$@"
+  exit 0
+fi
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "The OpenHands entrypoint.sh must run as root"
+  exit 1
+fi
+
+if [ -z "$SANDBOX_USER_ID" ]; then
+  echo "SANDBOX_USER_ID is not set"
+  exit 1
+fi
+
+if [ -z "$WORKSPACE_MOUNT_PATH" ]; then
+  # This is set to /opt/workspace in the Dockerfile. But if the user isn't mounting, we want to unset it so that OpenHands doesn't mount at all
+  unset WORKSPACE_BASE
+fi
+
+# Function to check if a port is in use
+check_port_in_use() {
+  local port=$1
+  # Try different commands that might be available in the container
+  if command -v netstat &> /dev/null; then
+    netstat -tuln | grep -q ":$port "
+    return $?
+  elif command -v ss &> /dev/null; then
+    ss -tuln | grep -q ":$port "
+    return $?
+  elif command -v lsof &> /dev/null; then
+    lsof -i ":$port" &> /dev/null
+    return $?
+  else
+    # If none of the above commands are available, try a direct connection test
+    (echo > /dev/tcp/127.0.0.1/$port) &> /dev/null
+    return $?
+  fi
+}
+
+if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
+  echo "Running OpenHands as root"
+  export RUN_AS_OPENHANDS=false
+  mkdir -p /root/.cache/ms-playwright/
+  if [ -d "/home/openhands/.cache/ms-playwright/" ]; then
+    mv /home/openhands/.cache/ms-playwright/ /root/.cache/
+  fi
+  
+  # Check if VSCode server is already running
+  VSCODE_PORT="${VSCODE_PORT:-40000}"
+  if ! check_port_in_use $VSCODE_PORT; then
+    # Start VSCode server only if it's not already running
+    OPENVSCODE_CMD="/openhands/.openvscode-server/bin/openvscode-server --port $VSCODE_PORT --without-connection-token --disable-x-frame-options"
+
+    if [ -x /openhands/.openvscode-server/bin/openvscode-server ]; then
+      echo "Starting OpenVSCode server on port $VSCODE_PORT..."
+      if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
+        $OPENVSCODE_CMD > /dev/stdout 2>&1 &
+        VSCODE_PID=$!
+        echo "Started OpenVSCode server as root (PID $VSCODE_PID)"
+      else
+        # Setup enduser as before
+        echo "Setting up enduser with id $SANDBOX_USER_ID"
+        if id "enduser" &>/dev/null; then
+          echo "User enduser already exists. Skipping creation."
+        else
+          if ! useradd -l -m -u $SANDBOX_USER_ID -s /bin/bash enduser; then
+            echo "Failed to create user enduser with id $SANDBOX_USER_ID. Moving openhands user."
+            incremented_id=$(($SANDBOX_USER_ID + 1))
+            usermod -u $incremented_id openhands
+            if ! useradd -l -m -u $SANDBOX_USER_ID -s /bin/bash enduser; then
+              echo "Failed to create user enduser with id $SANDBOX_USER_ID for a second time. Exiting."
+              exit 1
+            fi
+          fi
+        fi
+        usermod -aG app enduser
+        DOCKER_SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
+        echo "Docker socket group id: $DOCKER_SOCKET_GID"
+        if getent group $DOCKER_SOCKET_GID; then
+          echo "Group with id $DOCKER_SOCKET_GID already exists"
+        else
+          echo "Creating group with id $DOCKER_SOCKET_GID"
+          groupadd -g $DOCKER_SOCKET_GID docker
+        fi
+
+        mkdir -p /home/enduser/.cache/huggingface/hub/
+        mkdir -p /home/enduser/.cache/ms-playwright/
+        if [ -d "/home/openhands/.cache/ms-playwright/" ]; then
+          mv /home/openhands/.cache/ms-playwright/ /home/enduser/.cache/
+        fi
+
+        usermod -aG $DOCKER_SOCKET_GID enduser
+        echo "Running as enduser"
+        su enduser -c "$OPENVSCODE_CMD" > /dev/stdout 2>&1 &
+        VSCODE_PID=$!
+        echo "Started OpenVSCode server as enduser (PID $VSCODE_PID)"
+      fi
+    else
+      echo "OpenVSCode server binary not found, starting only OpenHands server: $*"
+    fi
+  else
+    echo "OpenVSCode server is already running on port $VSCODE_PORT, skipping start"
+  fi
+  
+  # Start OpenHands server
+  echo "Starting OpenHands server: $*"
+  if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
+    # Execute the command in the foreground
+    exec "$@"
+  else
+    echo "Starting OpenHands server as enduser: $*"
+    # Execute the command as enduser in the foreground
+    exec su enduser -c "${*@Q}"
+  fi
+fi
