@@ -30,48 +30,67 @@ if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
   if [ -d "/home/openhands/.cache/ms-playwright/" ]; then
     mv /home/openhands/.cache/ms-playwright/ /root/.cache/
   fi
+  # Start both OpenVSCode server and OpenHands server as managed foreground processes
+  VSCODE_PORT="${VSCODE_PORT:-40000}"
+  OPENVSCODE_CMD="/openhands/.openvscode-server/bin/openvscode-server --port $VSCODE_PORT"
+
   if [ -x /openhands/.openvscode-server/bin/openvscode-server ]; then
-    VSCODE_PORT="${VSCODE_PORT:-40000}"
-    /openhands/.openvscode-server/bin/openvscode-server --port "$VSCODE_PORT"
-  fi
-  "$@"
-else
-  echo "Setting up enduser with id $SANDBOX_USER_ID"
-  if id "enduser" &>/dev/null; then
-    echo "User enduser already exists. Skipping creation."
-  else
-    if ! useradd -l -m -u $SANDBOX_USER_ID -s /bin/bash enduser; then
-      echo "Failed to create user enduser with id $SANDBOX_USER_ID. Moving openhands user."
-      incremented_id=$(($SANDBOX_USER_ID + 1))
-      usermod -u $incremented_id openhands
-      if ! useradd -l -m -u $SANDBOX_USER_ID -s /bin/bash enduser; then
-        echo "Failed to create user enduser with id $SANDBOX_USER_ID for a second time. Exiting."
-        exit 1
+    echo "Starting OpenVSCode server on port $VSCODE_PORT..."
+    if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
+      $OPENVSCODE_CMD > /dev/stdout 2>&1 &
+      VSCODE_PID=$!
+      echo "Started OpenVSCode server as root (PID $VSCODE_PID)"
+      echo "Starting OpenHands server: $*"
+      exec "$@" &
+      OPENHANDS_PID=$!
+      echo "Started OpenHands server as root (PID $OPENHANDS_PID)"
+      # Wait for either process to exit
+      wait -n $VSCODE_PID $OPENHANDS_PID
+    else
+      # Setup enduser as before
+      echo "Setting up enduser with id $SANDBOX_USER_ID"
+      if id "enduser" &>/dev/null; then
+        echo "User enduser already exists. Skipping creation."
+      else
+        if ! useradd -l -m -u $SANDBOX_USER_ID -s /bin/bash enduser; then
+          echo "Failed to create user enduser with id $SANDBOX_USER_ID. Moving openhands user."
+          incremented_id=$(($SANDBOX_USER_ID + 1))
+          usermod -u $incremented_id openhands
+          if ! useradd -l -m -u $SANDBOX_USER_ID -s /bin/bash enduser; then
+            echo "Failed to create user enduser with id $SANDBOX_USER_ID for a second time. Exiting."
+            exit 1
+          fi
+        fi
       fi
+      usermod -aG app enduser
+      DOCKER_SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
+      echo "Docker socket group id: $DOCKER_SOCKET_GID"
+      if getent group $DOCKER_SOCKET_GID; then
+        echo "Group with id $DOCKER_SOCKET_GID already exists"
+      else
+        echo "Creating group with id $DOCKER_SOCKET_GID"
+        groupadd -g $DOCKER_SOCKET_GID docker
+      fi
+
+      mkdir -p /home/enduser/.cache/huggingface/hub/
+      mkdir -p /home/enduser/.cache/ms-playwright/
+      if [ -d "/home/openhands/.cache/ms-playwright/" ]; then
+        mv /home/openhands/.cache/ms-playwright/ /home/enduser/.cache/
+      fi
+
+      usermod -aG $DOCKER_SOCKET_GID enduser
+      echo "Running as enduser"
+      su enduser -c "$OPENVSCODE_CMD" > /dev/stdout 2>&1 &
+      VSCODE_PID=$!
+      echo "Started OpenVSCode server as enduser (PID $VSCODE_PID)"
+      echo "Starting OpenHands server as enduser: $*"
+      su enduser -c "${*@Q}" &
+      OPENHANDS_PID=$!
+      echo "Started OpenHands server as enduser (PID $OPENHANDS_PID)"
+      # Wait for either process to exit
+      wait -n $VSCODE_PID $OPENHANDS_PID
     fi
-  fi
-  usermod -aG app enduser
-  # get the user group of /var/run/docker.sock and set openhands to that group
-  DOCKER_SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
-  echo "Docker socket group id: $DOCKER_SOCKET_GID"
-  if getent group $DOCKER_SOCKET_GID; then
-    echo "Group with id $DOCKER_SOCKET_GID already exists"
   else
-    echo "Creating group with id $DOCKER_SOCKET_GID"
-    groupadd -g $DOCKER_SOCKET_GID docker
+    echo "OpenVSCode server binary not found, starting only OpenHands server: $*"
+    exec "$@"
   fi
-
-  mkdir -p /home/enduser/.cache/huggingface/hub/
-  mkdir -p /home/enduser/.cache/ms-playwright/
-  if [ -d "/home/openhands/.cache/ms-playwright/" ]; then
-    mv /home/openhands/.cache/ms-playwright/ /home/enduser/.cache/
-  fi
-
-  usermod -aG $DOCKER_SOCKET_GID enduser
-  echo "Running as enduser"
-  if [ -x /openhands/.openvscode-server/bin/openvscode-server ]; then
-    VSCODE_PORT="${VSCODE_PORT:-40000}"
-    /openhands/.openvscode-server/bin/openvscode-server --port "$VSCODE_PORT"
-  fi
-  su enduser /bin/bash -c "${*@Q}" # This magically runs any arguments passed to the script as a command
-fi
