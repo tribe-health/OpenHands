@@ -30,6 +30,10 @@ if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
   if [ -d "/home/openhands/.cache/ms-playwright/" ]; then
     mv /home/openhands/.cache/ms-playwright/ /root/.cache/
   fi
+  if [ -x /openhands/.openvscode-server/bin/openvscode-server ]; then
+    VSCODE_PORT="${VSCODE_PORT:-40000}"
+    /openhands/.openvscode-server/bin/openvscode-server --port "$VSCODE_PORT" > /dev/null 2>&1 &
+  fi
   "$@"
 else
   echo "Setting up enduser with id $SANDBOX_USER_ID"
@@ -65,5 +69,9 @@ else
 
   usermod -aG $DOCKER_SOCKET_GID enduser
   echo "Running as enduser"
+  if [ -x /openhands/.openvscode-server/bin/openvscode-server ]; then
+    VSCODE_PORT="${VSCODE_PORT:-40000}"
+    /openhands/.openvscode-server/bin/openvscode-server --port "$VSCODE_PORT" > /dev/null 2>&1 &
+  fi
   su enduser /bin/bash -c "${*@Q}" # This magically runs any arguments passed to the script as a command
 fi
