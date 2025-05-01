@@ -30,7 +30,8 @@ services:
       - VSCODE_SERVER_URL=https://openhands.skytok.net/vscode
       - VSCODE_USE_HOST_PROXY=true
       - VSCODE_PROXY_URI=https://openhands.skytok.net
-      - DOCKER_HOST_ADDR=openhands.skytok.net
+      - DOCKER_CONTAINER=true
+      - CUSTOM_DOMAIN_URL=https://openhands.skytok.net
     restart: unless-stopped
     ports:
       - "3500:3000"

@@ -93,17 +93,21 @@ class DockerRuntime(ActionExecutionClient):
         self._vscode_port = -1
         self._app_ports: list[int] = []
 
-        # Store the original local_runtime_url for internal connections
-        self._internal_url = 'http://localhost'
-        
-        # Set external URL for client-facing URLs if DOCKER_HOST_ADDR is provided
-        if os.environ.get('DOCKER_HOST_ADDR'):
-            logger.info(
-                f'Using DOCKER_HOST_IP: {os.environ["DOCKER_HOST_ADDR"]} for external URLs'
-            )
-            self._external_url = f'http://{os.environ["DOCKER_HOST_ADDR"]}'
+        # For internal connections, use host.docker.internal when in Docker environment
+        # This is a special DNS name that resolves to the host machine from inside a Docker container
+        if os.environ.get('DOCKER_CONTAINER'):
+            self._internal_url = 'http://host.docker.internal'
         else:
-            self._external_url = self.config.sandbox.local_runtime_url
+            self._internal_url = 'http://localhost'
+        
+        # Store the custom domain URL for VSCode if provided
+        if os.environ.get('CUSTOM_DOMAIN_URL'):
+            logger.info(
+                f'Using custom domain: {os.environ["CUSTOM_DOMAIN_URL"]} for VSCode URL'
+            )
+            self._vscode_domain = f'http://{os.environ["CUSTOM_DOMAIN_URL"]}'
+        else:
+            self._vscode_domain = self.config.sandbox.local_runtime_url
 
         self.docker_client: docker.DockerClient = self._init_docker_client()
         # Always use localhost for internal API connections
@@ -441,7 +445,7 @@ class DockerRuntime(ActionExecutionClient):
         if not token:
             return None
 
-        vscode_url = f'{self._external_url}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
+        vscode_url = f'{self._vscode_domain}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
         return vscode_url
 
     @property
@@ -449,7 +453,7 @@ class DockerRuntime(ActionExecutionClient):
         hosts: dict[str, int] = {}
 
         for port in self._app_ports:
-            hosts[f'{self._external_url}:{port}'] = port
+            hosts[f'{self.config.sandbox.local_runtime_url}:{port}'] = port
 
         return hosts
 

@@ -157,17 +157,17 @@ class LocalRuntime(ActionExecutionClient):
         self._vscode_port = -1
         self._app_ports: list[int] = []
 
-        # Store the original local_runtime_url for internal connections
+        # For internal connections, always use localhost
         self._internal_url = 'http://localhost'
         
-        # Set external URL for client-facing URLs if DOCKER_HOST_ADDR is provided
-        if os.environ.get('DOCKER_HOST_ADDR'):
+        # Store the custom domain URL for VSCode if provided
+        if os.environ.get('CUSTOM_DOMAIN_URL'):
             logger.info(
-                f'Using DOCKER_HOST_IP: {os.environ["DOCKER_HOST_ADDR"]} for external URLs'
+                f'Using custom domain: {os.environ["CUSTOM_DOMAIN_URL"]} for VSCode URL'
             )
-            self._external_url = f'http://{os.environ["DOCKER_HOST_ADDR"]}'
+            self._vscode_domain = f'http://{os.environ["CUSTOM_DOMAIN_URL"]}'
         else:
-            self._external_url = self.config.sandbox.local_runtime_url
+            self._vscode_domain = self.config.sandbox.local_runtime_url
 
         # Always use localhost for internal API connections
         self.api_url = f'{self._internal_url}:{self._host_port}'
@@ -344,12 +344,12 @@ class LocalRuntime(ActionExecutionClient):
         token = super().get_vscode_token()
         if not token:
             return None
-        vscode_url = f'{self._external_url}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
+        vscode_url = f'{self._vscode_domain}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
         return vscode_url
 
     @property
     def web_hosts(self):
         hosts: dict[str, int] = {}
         for port in self._app_ports:
-            hosts[f'{self._external_url}:{port}'] = port
+            hosts[f'{self.config.sandbox.local_runtime_url}:{port}'] = port
         return hosts
