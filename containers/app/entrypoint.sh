@@ -32,7 +32,7 @@ if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
   fi
   # Start both OpenVSCode server and OpenHands server as managed foreground processes
   VSCODE_PORT="${VSCODE_PORT:-40000}"
-  OPENVSCODE_CMD="/openhands/.openvscode-server/bin/openvscode-server --port $VSCODE_PORT"
+  OPENVSCODE_CMD="/openhands/.openvscode-server/bin/openvscode-server --port $VSCODE_PORT --without-connection-token"
 
   if [ -x /openhands/.openvscode-server/bin/openvscode-server ]; then
     echo "Starting OpenVSCode server on port $VSCODE_PORT..."
