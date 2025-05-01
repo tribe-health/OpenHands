@@ -20,20 +20,21 @@ server {
     }
 
     # VSCode proxy location - using fixed port 40000
-    location /vscode/ {
-        # Proxy to the VSCode server on port 40000
-        proxy_pass http://localhost:40000/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_read_timeout 300;
-        
-        # Disable buffering for VSCode
-        proxy_buffering off;
+    # NOTE: You must start openvscode-server with --server-base-path /vscode for this to work!
+location /vscode/ {
+    proxy_pass http://localhost:40000/vscode/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_read_timeout 300;
+    proxy_buffering off;
+    proxy_hide_header X-Frame-Options;
+    add_header Content-Security-Policy "frame-ancestors *" always;
+}
     }
 
     # SSL configuration
