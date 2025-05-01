@@ -63,15 +63,18 @@ RUN useradd -l -m -u $OPENHANDS_USER_ID -s /bin/bash openhands && \
     echo '%sudo ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
 RUN chown -R openhands:app /app && chmod -R 770 /app
 RUN sudo chown -R openhands:app $WORKSPACE_BASE && sudo chmod -R 770 $WORKSPACE_BASE
-USER openhands
+USER root
 
-# Download and extract the latest OpenVSCode server release to /openhands/.openvscode-server
+# Download and extract the latest OpenVSCode server release to /openhands/.openvscode-server as root, then set ownership
 RUN mkdir -p /openhands/.openvscode-server && \
     LATEST_URL=$(curl -s https://api.github.com/repos/gitpod-io/openvscode-server/releases/latest | grep "browser_download_url.*linux-x64.tar.gz" | cut -d '"' -f 4 | head -n 1) && \
     curl -L "$LATEST_URL" -o /tmp/openvscode-server.tar.gz && \
     tar -xzf /tmp/openvscode-server.tar.gz --strip-components=1 -C /openhands/.openvscode-server && \
     rm /tmp/openvscode-server.tar.gz && \
+    chown -R openhands:app /openhands/.openvscode-server && \
     test -x /openhands/.openvscode-server/bin/openvscode-server
+
+USER openhands
 
 ENV VIRTUAL_ENV=/app/.venv \
     PATH="/app/.venv/bin:$PATH" \
