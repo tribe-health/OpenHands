@@ -4,6 +4,10 @@ from contextlib import asynccontextmanager
 with warnings.catch_warnings():
     warnings.simplefilter('ignore')
 
+from openhands.core.config import AppConfig
+from openhands.core.mcp_client_manager import MCPClientManager
+import asyncio
+
 from fastapi import (
     FastAPI,
 )
@@ -22,10 +26,15 @@ from openhands.server.routes.security import app as security_api_router
 from openhands.server.routes.settings import app as settings_router
 from openhands.server.routes.trajectory import app as trajectory_router
 from openhands.server.shared import conversation_manager
-
+from openhands.server.routes.mcp import app as mcp_router
 
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
+    # Initialize MCP manager and attach to app state
+    config = AppConfig()  # You may want to load from file/env as appropriate
+    mcp_manager = MCPClientManager(config.mcp)
+    await mcp_manager.initialize()
+    app.state.mcp_manager = mcp_manager
     async with conversation_manager:
         yield
 
@@ -52,3 +61,4 @@ app.include_router(manage_conversation_api_router)
 app.include_router(settings_router)
 app.include_router(git_api_router)
 app.include_router(trajectory_router)
+app.include_router(mcp_router)

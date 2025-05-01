@@ -62,3 +62,14 @@ class MCPClientManager:
     async def close(self):
         for client in self.clients.values():
             await client.close()
+
+    async def reload(self):
+        """
+        Reload all MCPClient instances and re-discover tools/resources/prompts.
+        """
+        await self.close()
+        self.clients.clear()
+        self.tools.clear()
+        self.resources.clear()
+        self.prompts.clear()
+        await self.initialize()
