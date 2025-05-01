@@ -10,31 +10,55 @@ from openhands.mcp.client import MCPClient
 
 def convert_mcp_clients_to_tools(mcp_clients: list[MCPClient] | None) -> list[dict]:
     """
-    Converts a list of MCPClient instances to ChatCompletionToolParam format
-    that can be used by CodeActAgent.
+    Converts a list of MCPClient instances to a model-agnostic tool/resource/prompt schema.
 
     Args:
         mcp_clients: List of MCPClient instances or None
 
     Returns:
-        List of dicts of tools ready to be used by CodeActAgent
+        List of dicts describing tools/resources/prompts in a generic, model-agnostic format.
     """
     if mcp_clients is None:
         logger.warning('mcp_clients is None, returning empty list')
         return []
 
-    all_mcp_tools = []
+    all_mcp_items = []
     try:
         for client in mcp_clients:
-            # Each MCPClient has an mcp_clients property that is a ToolCollection
-            # The ToolCollection has a to_params method that converts tools to ChatCompletionToolParam format
-            for tool in client.tools:
-                mcp_tools = tool.to_param()
-                all_mcp_tools.append(mcp_tools)
+            # Aggregate tools
+            for tool_name, tool in getattr(client, "tools", {}).items():
+                all_mcp_items.append({
+                    "type": "tool",
+                    "client": getattr(client, "name", None),
+                    "name": tool.get("name"),
+                    "description": tool.get("description"),
+                    "parameters": tool.get("parameters"),
+                    "metadata": {k: v for k, v in tool.items() if k not in ("name", "description", "parameters")},
+                })
+            # Aggregate resources
+            for res_name, res in getattr(client, "resources", {}).items():
+                all_mcp_items.append({
+                    "type": "resource",
+                    "client": getattr(client, "name", None),
+                    "name": res.get("name"),
+                    "description": res.get("description"),
+                    "parameters": res.get("parameters"),
+                    "metadata": {k: v for k, v in res.items() if k not in ("name", "description", "parameters")},
+                })
+            # Aggregate prompts
+            for prompt_name, prompt in getattr(client, "prompts", {}).items():
+                all_mcp_items.append({
+                    "type": "prompt",
+                    "client": getattr(client, "name", None),
+                    "name": prompt.get("name"),
+                    "description": prompt.get("description"),
+                    "parameters": prompt.get("parameters"),
+                    "metadata": {k: v for k, v in prompt.items() if k not in ("name", "description", "parameters")},
+                })
     except Exception as e:
         logger.error(f'Error in convert_mcp_clients_to_tools: {e}')
         return []
-    return all_mcp_tools
+    return all_mcp_items
 
 
 async def create_mcp_clients(
