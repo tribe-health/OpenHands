@@ -97,8 +97,10 @@ class DockerRuntime(ActionExecutionClient):
         # This is a special DNS name that resolves to the host machine from inside a Docker container
         if os.environ.get('DOCKER_CONTAINER'):
             self._internal_url = 'http://host.docker.internal'
+            logger.info(f'Running in Docker container, using internal URL: {self._internal_url}')
         else:
             self._internal_url = 'http://localhost'
+            logger.info(f'Running outside Docker, using internal URL: {self._internal_url}')
         
         # Store the custom domain URL for VSCode if provided
         if os.environ.get('CUSTOM_DOMAIN_URL'):
@@ -109,10 +111,13 @@ class DockerRuntime(ActionExecutionClient):
             else:
                 self._vscode_domain = f'http://{custom_domain}'
             logger.info(
-                f'Using custom domain: {self._vscode_domain} for VSCode URL'
+                f'Using custom domain for VSCode: {self._vscode_domain}'
             )
         else:
             self._vscode_domain = self.config.sandbox.local_runtime_url
+            logger.info(
+                f'No custom domain set, using local runtime URL for VSCode: {self._vscode_domain}'
+            )
 
         self.docker_client: docker.DockerClient = self._init_docker_client()
         # Always use localhost for internal API connections
@@ -462,14 +467,18 @@ class DockerRuntime(ActionExecutionClient):
 
         - If CUSTOM_DOMAIN_URL is set (with protocol), always use it and append '/vscode/'.
         - Otherwise, fallback to 'http://localhost:{self._vscode_port}/vscode/' for local development.
-        - This ensures the frontend never receives a localhost or host.docker.internal URL in production.
+        - This ensures the frontend never receives a host.docker.internal URL.
         """
         if hasattr(self, "_vscode_domain") and self._vscode_domain:
             # Always use the custom domain if set, for production or reverse proxy setups
-            return f'{self._vscode_domain}/vscode/'
+            url = f'{self._vscode_domain}/vscode/'
+            logger.info(f'Returning VSCode URL with custom domain: {url}')
+            return url
         else:
-            # Fallback for local development
-            return f'http://localhost:{self._vscode_port}/vscode/'
+            # Fallback for local development - never use host.docker.internal
+            url = f'http://localhost:{self._vscode_port}/vscode/'
+            logger.info(f'Returning VSCode URL for local development: {url}')
+            return url
 
     @property
     def web_hosts(self):

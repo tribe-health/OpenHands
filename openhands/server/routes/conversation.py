@@ -38,13 +38,15 @@ async def get_vscode_url(request: Request):
     """
     try:
         runtime: Runtime = request.state.conversation.runtime
-        logger.debug(f'Runtime type: {type(runtime)}')
-        logger.debug(f'Runtime VSCode URL: {runtime.vscode_url}')
+        logger.info(f'VSCode URL request received - Runtime type: {type(runtime).__name__}')
+        vscode_url = runtime.vscode_url
+        logger.info(f'Returning VSCode URL to client: {vscode_url}')
         return JSONResponse(
-            status_code=status.HTTP_200_OK, content={'vscode_url': runtime.vscode_url}
+            status_code=status.HTTP_200_OK, content={'vscode_url': vscode_url}
         )
     except Exception as e:
         logger.error(f'Error getting VSCode URL: {e}')
+        logger.error(f'Error traceback:', exc_info=True)  # This will log the full traceback
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={
