@@ -13,6 +13,8 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    env_file:
+      - .env
     container_name: openhands-app-${DATE:-}
     environment:
       - SANDBOX_RUNTIME_CONTAINER_IMAGE=${SANDBOX_RUNTIME_CONTAINER_IMAGE:-docker.all-hands.dev/all-hands-ai/runtime:0.35-nikolaik}
@@ -32,9 +34,11 @@ services:
       - VSCODE_PROXY_URI=https://openhands.skytok.net
       - DOCKER_CONTAINER=true
       - CUSTOM_DOMAIN_URL=https://openhands.skytok.net
+      - VSCODE_PORT=${VSCODE_PORT:-40000}
     restart: unless-stopped
     ports:
       - "3500:3000"
+      - "${VSCODE_PORT:-40000}:${VSCODE_PORT:-40000}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "openhands.skytok.net:127.0.0.1"

@@ -4,14 +4,15 @@ This guide explains how to configure OpenHands to work correctly with a custom d
 
 ## How It Works
 
-Our implementation uses a dual-URL approach:
+Our implementation uses a dual-URL approach with path-based routing:
 1. **Internal connections**: Always use `http://localhost` for internal API connections to ensure the runtime can connect to itself
-2. **VSCode URL**: Use the custom domain from `CUSTOM_DOMAIN_URL` specifically for the VSCode URL
+2. **VSCode URL**: Use the custom domain from `CUSTOM_DOMAIN_URL` with path-based routing (`/vscode/{port}/`) for VSCode URLs
 
 This approach ensures that:
 - The runtime can always check if it's alive using localhost
 - The VSCode URL exposed to the client uses the custom domain
 - No complex URL rewriting is needed in the Nginx configuration
+- No need to open thousands of ports in your firewall
 
 ## Environment Variable Configuration
 
@@ -51,26 +52,55 @@ WantedBy=multi-user.target
 
 ## Docker Compose Configuration
 
-If you're using Docker Compose, you can add the environment variable to your `docker-compose.yml` file:
+If you're using Docker Compose, you can add the environment variables to your `docker-compose.yml` file:
 
 ```yaml
 services:
   openhands:
     # ... other configuration ...
     environment:
-      - CUSTOM_DOMAIN_URL=openhands.skytok.net
+      - CUSTOM_DOMAIN_URL=https://openhands.skytok.net
       - DOCKER_CONTAINER=true  # Required when running in Docker
+      - VSCODE_PORT=40000      # Fixed port for VSCode
+    ports:
+      - "3000:3000"            # Main application port
+      - "40000:40000"          # VSCode port
 ```
+
+The `VSCODE_PORT` environment variable allows you to specify a fixed port for VSCode, making it easier to configure your Nginx proxy.
 
 ## Nginx Configuration
 
-With the `CUSTOM_DOMAIN_URL` environment variable set, you can use a simplified Nginx configuration without complex URL rewriting. See the example configuration in `nginx.conf.example`.
+With the `CUSTOM_DOMAIN_URL` environment variable set, you need a proper Nginx configuration to handle both the main application and the VSCode server. See the example configuration in `nginx.conf.example`.
 
-The key points in the Nginx configuration are:
+### Key Components of the Nginx Configuration
 
-1. Standard proxy settings for WebSocket support
-2. Setting appropriate headers for HTTPS
-3. No need for URL rewriting or JavaScript injection for VSCode URLs
+1. **Main Application Server Block**:
+   - Handles requests to the main application on port 443 (HTTPS)
+   - Proxies requests to your local OpenHands server (typically on port 3500)
+
+2. **VSCode Server Block**:
+   - Handles requests to the VSCode server on ports 40000-49999
+   - Uses a dynamic port mapping to forward requests to the corresponding local port
+   - Includes WebSocket support which is essential for VSCode functionality
+
+3. **SSL Configuration**:
+   - Uses the same SSL certificate for both the main application and VSCode
+   - Ensures secure connections for all components
+
+### Important Considerations
+
+1. **Port Forwarding**:
+   - Make sure your firewall and network configuration allow incoming connections on ports 40000-49999
+   - These ports must be accessible from the internet for VSCode to work properly
+
+2. **SSL Certificates**:
+   - The same SSL certificate is used for all ports
+   - If using Let's Encrypt, make sure your certificate includes all required ports
+
+3. **WebSocket Support**:
+   - The configuration includes necessary headers for WebSocket support
+   - This is critical for VSCode's real-time functionality
 
 ## Troubleshooting
 

@@ -226,7 +226,18 @@ class DockerRuntime(ActionExecutionClient):
         self.send_status_message('STATUS$PREPARING_CONTAINER')
         self._host_port = self._find_available_port(EXECUTION_SERVER_PORT_RANGE)
         self._container_port = self._host_port
-        self._vscode_port = self._find_available_port(VSCODE_PORT_RANGE)
+        # Use the VSCODE_PORT environment variable if provided, otherwise use default (40000)
+        # or find an available port if the specified one is in use
+        try:
+            default_vscode_port = int(os.environ.get('VSCODE_PORT', '40000'))
+            self._vscode_port = default_vscode_port
+            if self._is_port_in_use_docker(self._vscode_port):
+                logger.warning(f"VSCode port {self._vscode_port} is in use, finding another one")
+                self._vscode_port = self._find_available_port(VSCODE_PORT_RANGE)
+        except Exception as e:
+            logger.warning(f"Error setting VSCode port: {e}, finding an available one")
+            # Fallback to dynamic port if there's any issue
+            self._vscode_port = self._find_available_port(VSCODE_PORT_RANGE)
         self._app_ports = [
             self._find_available_port(APP_PORT_RANGE_1),
             self._find_available_port(APP_PORT_RANGE_2),
@@ -450,7 +461,8 @@ class DockerRuntime(ActionExecutionClient):
         if not token:
             return None
 
-        vscode_url = f'{self._vscode_domain}:{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
+        # Use path-based routing for VSCode URL
+        vscode_url = f'{self._vscode_domain}/vscode/{self._vscode_port}/?tkn={token}&folder={self.config.workspace_mount_path_in_sandbox}'
         return vscode_url
 
     @property
