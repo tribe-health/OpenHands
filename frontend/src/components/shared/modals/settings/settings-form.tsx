@@ -1,6 +1,7 @@
 import { useLocation } from "react-router";
 import { useTranslation } from "react-i18next";
 import React from "react";
+import { McpServerManager } from "./mcp-server-manager";
 import posthog from "posthog-js";
 import { I18nKey } from "#/i18n/declaration";
 import { organizeModelsAndProviders } from "#/utils/organize-models-and-providers";
@@ -78,6 +79,7 @@ export function SettingsForm({ settings, models, onClose }: SettingsFormProps) {
 
   return (
     <div>
+      <McpServerManager />
       <form
         ref={formRef}
         data-testid="settings-form"
