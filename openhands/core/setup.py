@@ -12,6 +12,8 @@ from openhands.controller.state.state import State
 from openhands.core.config import (
     AppConfig,
 )
+from openhands.core.mcp_client_manager import MCPClientManager
+from openhands.core.tool_registry import ToolRegistry
 from openhands.core.logger import openhands_logger as logger
 from openhands.events import EventStream
 from openhands.events.event import Event
@@ -23,6 +25,24 @@ from openhands.runtime import get_runtime_cls
 from openhands.runtime.base import Runtime
 from openhands.security import SecurityAnalyzer, options
 from openhands.storage import get_file_store
+async def initialize_mcp_and_tools(config: AppConfig, agent):
+    """
+    Initialize MCPClientManager and ToolRegistry, and set discovered MCP tools on the agent.
+    Returns (mcp_manager, tool_registry).
+    """
+    mcp_manager = MCPClientManager(config.mcp)
+    await mcp_manager.initialize()
+    tool_registry = ToolRegistry(mcp_manager)
+    # Set discovered MCP tools on the agent
+    if hasattr(agent, "set_mcp_tools"):
+        agent.set_mcp_tools(list(mcp_manager.tools.values()))
+    return mcp_manager, tool_registry
+
+# Example usage (in your async startup logic):
+# agent = create_agent(config)
+# mcp_manager, tool_registry = await initialize_mcp_and_tools(config, agent)
+# controller, state = create_controller(agent, runtime, config)
+# controller.tool_registry = tool_registry  # Attach for tool/resource/prompt invocation
 from openhands.utils.async_utils import GENERAL_TIMEOUT, call_async_from_sync
 
 

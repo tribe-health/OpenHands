@@ -1,10 +1,12 @@
-# Example nginx configuration for OpenHands with DOCKER_HOST_ADDR environment variable
-# This simplified configuration works with the updated code that uses DOCKER_HOST_ADDR
+# Example nginx configuration for OpenHands with CUSTOM_DOMAIN_URL environment variable
+# This configuration handles both the main application and VSCode server
 
+# Main application server block
 server {
     server_name openhands.skytok.net;
+    listen 443 ssl;
 
-    # Standard location block for all requests
+    # Standard location block for the main application
     location / {
         proxy_pass http://localhost:3500;
         proxy_http_version 1.1;
@@ -17,13 +19,35 @@ server {
         proxy_read_timeout 300;
     }
 
-    listen 443 ssl; # managed by Certbot
+    # VSCode proxy location - handles VSCode URLs through path-based routing
+    # This approach avoids the need to listen on thousands of ports
+    location ~ ^/vscode/(\d+)/ {
+        # Extract the port from the location
+        set $vscode_port $1;
+        
+        # Proxy to the VSCode server
+        proxy_pass http://localhost:$vscode_port/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_read_timeout 300;
+        
+        # Disable buffering for VSCode
+        proxy_buffering off;
+    }
+
+    # SSL configuration
     ssl_certificate /etc/letsencrypt/live/openhands.skytok.net/fullchain.pem; # managed by Certbot
     ssl_certificate_key /etc/letsencrypt/live/openhands.skytok.net/privkey.pem; # managed by Certbot
     include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
 }
 
+# Redirect HTTP to HTTPS
 server {
     if ($host = openhands.skytok.net) {
         return 301 https://$host$request_uri;

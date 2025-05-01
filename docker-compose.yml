@@ -5,6 +5,8 @@ services:
       context: ./
       dockerfile: ./containers/app/Dockerfile
     image: openhands:latest
+    env_file:
+      - .env
     container_name: openhands-app-${DATE:-}
     environment:
       - SANDBOX_RUNTIME_CONTAINER_IMAGE=${SANDBOX_RUNTIME_CONTAINER_IMAGE:-docker.all-hands.dev/all-hands-ai/runtime:0.35-nikolaik}
@@ -12,8 +14,10 @@ services:
       - WORKSPACE_MOUNT_PATH=${WORKSPACE_BASE:-$PWD/workspace}
       - DOCKER_CONTAINER=true
       - CUSTOM_DOMAIN_URL=${CUSTOM_DOMAIN_URL:-localhost}
+      - VSCODE_PORT=${VSCODE_PORT:-40000}
     ports:
       - "3000:3000"
+      - "${VSCODE_PORT:-40000}:${VSCODE_PORT:-40000}"
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:
