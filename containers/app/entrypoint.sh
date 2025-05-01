@@ -32,7 +32,7 @@ if [[ "$SANDBOX_USER_ID" -eq 0 ]]; then
   fi
   if [ -x /openhands/.openvscode-server/bin/openvscode-server ]; then
     VSCODE_PORT="${VSCODE_PORT:-40000}"
-    /openhands/.openvscode-server/bin/openvscode-server --port "$VSCODE_PORT" > /dev/null 2>&1 &
+    /openhands/.openvscode-server/bin/openvscode-server --port "$VSCODE_PORT"
   fi
   "$@"
 else
@@ -71,7 +71,7 @@ else
   echo "Running as enduser"
   if [ -x /openhands/.openvscode-server/bin/openvscode-server ]; then
     VSCODE_PORT="${VSCODE_PORT:-40000}"
-    /openhands/.openvscode-server/bin/openvscode-server --port "$VSCODE_PORT" > /dev/null 2>&1 &
+    /openhands/.openvscode-server/bin/openvscode-server --port "$VSCODE_PORT"
   fi
   su enduser /bin/bash -c "${*@Q}" # This magically runs any arguments passed to the script as a command
 fi
