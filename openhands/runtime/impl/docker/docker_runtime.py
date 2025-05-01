@@ -102,10 +102,15 @@ class DockerRuntime(ActionExecutionClient):
         
         # Store the custom domain URL for VSCode if provided
         if os.environ.get('CUSTOM_DOMAIN_URL'):
+            custom_domain = os.environ["CUSTOM_DOMAIN_URL"]
+            # Check if the URL already has a protocol prefix
+            if custom_domain.startswith(('http://', 'https://')):
+                self._vscode_domain = custom_domain
+            else:
+                self._vscode_domain = f'http://{custom_domain}'
             logger.info(
-                f'Using custom domain: {os.environ["CUSTOM_DOMAIN_URL"]} for VSCode URL'
+                f'Using custom domain: {self._vscode_domain} for VSCode URL'
             )
-            self._vscode_domain = f'http://{os.environ["CUSTOM_DOMAIN_URL"]}'
         else:
             self._vscode_domain = self.config.sandbox.local_runtime_url
 

@@ -83,6 +83,7 @@ If you're still seeing localhost URLs:
 
 ## Additional Notes
 
-- The `CUSTOM_DOMAIN_URL` should be set to just the domain name (e.g., `openhands.skytok.net`), not the full URL with protocol
-- The code will automatically add the `http://` prefix when constructing URLs
-- If you're using HTTPS (recommended), your Nginx configuration will handle the protocol upgrade
+- The `CUSTOM_DOMAIN_URL` can be set to either:
+  - Just the domain name (e.g., `openhands.skytok.net`), in which case the code will automatically add the `http://` prefix
+  - The full URL with protocol (e.g., `https://openhands.skytok.net`), which will be used as-is
+- If you're using HTTPS (recommended), you should include the protocol in the `CUSTOM_DOMAIN_URL` environment variable (e.g., `https://openhands.skytok.net`)
