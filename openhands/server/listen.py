@@ -1,9 +1,6 @@
 import os
 
-import socketio
-
 from openhands.server.app import app as base_app
-from openhands.server.listen_socket import sio
 from openhands.server.middleware import (
     AttachConversationMiddleware,
     CacheControlMiddleware,
@@ -32,4 +29,4 @@ base_app.add_middleware(
 )
 base_app.middleware('http')(AttachConversationMiddleware(base_app))
 
-app = socketio.ASGIApp(sio, other_asgi_app=base_app, socketio_path='/ws')
+app = base_app

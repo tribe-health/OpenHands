@@ -1,6 +1,5 @@
 import os
 
-import socketio
 from dotenv import load_dotenv
 
 from openhands.core.config import load_app_config
@@ -20,18 +19,7 @@ config = load_app_config()
 server_config = load_server_config()
 file_store = get_file_store(config.file_store, config.file_store_path)
 
-client_manager = None
-redis_host = os.environ.get('REDIS_HOST')
-if redis_host:
-    client_manager = socketio.AsyncRedisManager(
-        f'redis://{redis_host}',
-        redis_options={'password': os.environ.get('REDIS_PASSWORD')},
-    )
-
-
-sio = socketio.AsyncServer(
-    async_mode='asgi', cors_allowed_origins='*', client_manager=client_manager
-)
+# Legacy socketio/redis client_manager and sio setup removed.
 
 MonitoringListenerImpl = get_impl(
     MonitoringListener,
@@ -46,7 +34,7 @@ ConversationManagerImpl = get_impl(
 )
 
 conversation_manager = ConversationManagerImpl.get_instance(  # type: ignore
-    sio, config, file_store, server_config, monitoring_listener
+    None, config, file_store, server_config, monitoring_listener
 )
 
 SettingsStoreImpl = get_impl(SettingsStore, server_config.settings_store_class)  # type: ignore

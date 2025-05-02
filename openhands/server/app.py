@@ -44,6 +44,30 @@ async def _lifespan(app: FastAPI):
         print(f"[startup] Published 'ready' to Redis channel openhands:ready at {redis_host}:6379")
     except Exception as e:
         print(f"[startup] Failed to publish 'ready' to Redis: {e}")
+    import threading
+
+    def redis_wrapper_event_listener():
+        import redis
+        import json
+        redis_host = os.environ.get("REDIS_HOST", "localhost")
+        r = redis.Redis(host=redis_host, port=6379)
+        pub = redis.Redis(host=redis_host, port=6379)
+        p = r.pubsub()
+        p.subscribe("openhands:wrapper:events")
+        print(f"[startup] Subscribed to Redis channel openhands:wrapper:events at {redis_host}:6379")
+        for message in p.listen():
+            if message["type"] == "message":
+                try:
+                    event = json.loads(message["data"])
+                    print(f"[wrapper-event] Received: {event}")
+                    # Example: handle file events, project switch, etc.
+                    # You can add your own logic here to process events.
+                    # To send a control message back to the wrapper:
+                    # pub.publish("openhands:server:events", json.dumps({"type": "project_switch", "directory": "/some/path"}))
+                except Exception as e:
+                    print(f"[wrapper-event] Error processing message: {e}")
+
+    threading.Thread(target=redis_wrapper_event_listener, daemon=True).start()
     async with conversation_manager:
         yield
 
