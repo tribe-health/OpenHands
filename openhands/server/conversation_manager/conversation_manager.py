@@ -2,8 +2,6 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-import socketio
-
 from openhands.core.config import AppConfig
 from openhands.events.action import MessageAction
 from openhands.events.event_store import EventStore
@@ -23,7 +21,7 @@ class ConversationManager(ABC):
     attachment, detachment, and cleanup.
     """
 
-    sio: socketio.AsyncServer
+    sio: object  # Changed from socketio.AsyncServer to generic object
     config: AppConfig
     file_store: FileStore
     conversation_store: ConversationStore

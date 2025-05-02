@@ -4,8 +4,6 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Callable, Iterable, Type
 
-import socketio
-
 from openhands.core.config.app_config import AppConfig
 from openhands.core.exceptions import AgentRuntimeUnavailableError
 from openhands.core.logger import openhands_logger as logger
@@ -36,7 +34,7 @@ UPDATED_AT_CALLBACK_ID = 'updated_at_callback_id'
 class StandaloneConversationManager(ConversationManager):
     """Manages conversations in standalone mode (single server instance)."""
 
-    sio: socketio.AsyncServer
+    sio: object  # Changed from socketio.AsyncServer to generic object
     config: AppConfig
     file_store: FileStore
     server_config: ServerConfig
@@ -410,7 +408,7 @@ class StandaloneConversationManager(ConversationManager):
     @classmethod
     def get_instance(
         cls,
-        sio: socketio.AsyncServer,
+        sio: object,  # Changed from socketio.AsyncServer to generic object
         config: AppConfig,
         file_store: FileStore,
         server_config: ServerConfig,

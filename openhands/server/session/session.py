@@ -38,7 +38,7 @@ ROOM_KEY = 'room:{sid}'
 
 class Session:
     sid: str
-    sio: socketio.AsyncServer | None
+    sio: object | None  # Changed from socketio.AsyncServer to generic object
     last_active_ts: int = 0
     is_alive: bool = True
     agent_session: AgentSession
@@ -53,7 +53,7 @@ class Session:
         sid: str,
         config: AppConfig,
         file_store: FileStore,
-        sio: socketio.AsyncServer | None,
+        sio: object | None,  # Changed from socketio.AsyncServer to generic object
         user_id: str | None = None,
     ):
         self.sid = sid
@@ -75,21 +75,42 @@ class Session:
         self.loop = asyncio.get_event_loop()
         self.user_id = user_id
 
-        # Redis communication config
-        self.redis_host = os.environ.get("REDIS_HOST", "localhost")
-        self.redis_port = 6379
-        self._redis_client = None
-        self._redis_lock = asyncio.Lock()
-        self.SERVER_EVENTS_CHANNEL = 'openhands:server:events'
+        # Communication config
+        self.custom_domain = bool(os.environ.get("CUSTOM_DOMAIN_URL"))
+        
+        if self.custom_domain:
+            # Redis communication for custom domain mode
+            self.redis_host = os.environ.get("REDIS_HOST", "localhost")
+            self.redis_port = 6379
+            self._redis_client = None
+            self._redis_lock = asyncio.Lock()
+            self.SERVER_EVENTS_CHANNEL = 'openhands:server:events'
+        else:
+            # WebSocket communication for local mode
+            self.wrapper_ws_url = os.environ.get("WRAPPER_WS_URL", "ws://localhost:8080/ws")
+            self._wrapper_ws_lock = asyncio.Lock()
+            self._wrapper_ws = None
 
     async def _send_wrapper_message(self, message: dict):
-        async with self._redis_lock:
-            try:
-                if self._redis_client is None:
-                    self._redis_client = redis.Redis(host=self.redis_host, port=self.redis_port)
-                self._redis_client.publish(self.SERVER_EVENTS_CHANNEL, json.dumps(message))
-            except Exception as e:
-                self.logger.error(f"Failed to send message to wrapper via Redis: {e}")
+        if self.custom_domain:
+            # Redis-based communication for custom domain mode
+            async with self._redis_lock:
+                try:
+                    if self._redis_client is None:
+                        self._redis_client = redis.Redis(host=self.redis_host, port=self.redis_port)
+                    self._redis_client.publish(self.SERVER_EVENTS_CHANNEL, json.dumps(message))
+                except Exception as e:
+                    self.logger.error(f"Failed to send message to wrapper via Redis: {e}")
+        else:
+            # WebSocket-based communication for local mode
+            async with self._wrapper_ws_lock:
+                try:
+                    import websockets
+                    if self._wrapper_ws is None or self._wrapper_ws.closed:
+                        self._wrapper_ws = await websockets.connect(self.wrapper_ws_url)
+                    await self._wrapper_ws.send(json.dumps(message))
+                except Exception as e:
+                    self.logger.error(f"Failed to send message to wrapper via WebSocket: {e}")
     async def close(self):
         if self.sio:
             await self.sio.emit(
@@ -101,10 +122,17 @@ class Session:
             )
         self.is_alive = False
         
-        # Close Redis connection if open
-        if self._redis_client is not None:
-            self._redis_client.close()
-            self._redis_client = None
+        # Close communication connections
+        if self.custom_domain:
+            # Close Redis connection if open
+            if self._redis_client is not None:
+                self._redis_client.close()
+                self._redis_client = None
+        else:
+            # Close WebSocket connection if open
+            if hasattr(self, '_wrapper_ws') and self._wrapper_ws is not None:
+                await self._wrapper_ws.close()
+                self._wrapper_ws = None
             
         await self.agent_session.close()
 

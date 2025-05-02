@@ -19,7 +19,12 @@ config = load_app_config()
 server_config = load_server_config()
 file_store = get_file_store(config.file_store, config.file_store_path)
 
-# Legacy socketio/redis client_manager and sio setup removed.
+# Communication setup
+CUSTOM_DOMAIN = bool(os.environ.get("CUSTOM_DOMAIN_URL"))
+
+# For frontend communication, we still need Socket.IO
+import socketio
+sio = socketio.AsyncServer(async_mode='asgi', cors_allowed_origins='*')
 
 MonitoringListenerImpl = get_impl(
     MonitoringListener,
