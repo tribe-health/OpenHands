@@ -1,0 +1,15 @@
+{
+  "name": "openhands-vscode-wrapper",
+  "version": "0.1.0",
+  "description": "Wrapper service to launch and manage an embedded OpenVSCode server, communicating with OpenHands via WebSocket.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "ws": "^8.15.0",
+    "chokidar": "^3.5.3"
+  },
+  "author": "",
+  "license": "MIT"
+}
