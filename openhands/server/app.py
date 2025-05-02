@@ -35,6 +35,15 @@ async def _lifespan(app: FastAPI):
     mcp_manager = MCPClientManager(config.mcp)
     await mcp_manager.initialize()
     app.state.mcp_manager = mcp_manager
+    import os
+    import redis
+    redis_host = os.environ.get("REDIS_HOST", "localhost")
+    try:
+        r = redis.Redis(host=redis_host, port=6379)
+        r.publish("openhands:ready", "ready")
+        print(f"[startup] Published 'ready' to Redis channel openhands:ready at {redis_host}:6379")
+    except Exception as e:
+        print(f"[startup] Failed to publish 'ready' to Redis: {e}")
     async with conversation_manager:
         yield
 

@@ -119,9 +119,49 @@ function setupFileWatcher(ws) {
 }
 
 // === Main startup ===
-function main() {
+async function waitForServerReady() {
+  return new Promise((resolve, reject) => {
+    const redis = new Redis({ host: REDIS_HOST, port: REDIS_PORT });
+    let readyReceived = false;
+    console.log(`[wrapper] Subscribing to Redis channel 'openhands:ready' at ${REDIS_HOST}:${REDIS_PORT}...`);
+    redis.subscribe('openhands:ready', (err, count) => {
+      if (err) {
+        console.error('[wrapper] Redis subscribe error:', err);
+        reject(err);
+      }
+    });
+    redis.on('message', (channel, message) => {
+      if (channel === 'openhands:ready' && message === 'ready') {
+        if (!readyReceived) {
+          readyReceived = true;
+          console.log('[wrapper] Received "ready" message from server via Redis. Proceeding to connect to OpenHands WebSocket.');
+          redis.disconnect();
+          resolve();
+        }
+      }
+    });
+    // Optional: timeout if never receives "ready"
+    setTimeout(() => {
+      if (!readyReceived) {
+        console.error('[wrapper] Timed out waiting for "ready" message from server via Redis.');
+        redis.disconnect();
+        reject(new Error('Timed out waiting for server ready'));
+      }
+    }, 60000); // 60 seconds
+  });
+}
+
+async function main() {
   // Launch OpenVSCode
   launchOpenVSCode(currentWorkspaceDir);
+
+  // Wait for server "ready" message via Redis before connecting to WebSocket
+  try {
+    await waitForServerReady();
+  } catch (err) {
+    console.error('[wrapper] Startup aborted:', err);
+    process.exit(1);
+  }
 
   // Connect to OpenHands and set up file watcher
   let ws = connectToOpenHands();
