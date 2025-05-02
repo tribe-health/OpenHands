@@ -48,7 +48,8 @@ function restartOpenVSCode(newWorkspaceDir) {
 }
 
 // === Connect to OpenHands WebSocket server ===
-function connectToOpenHands() {
+function connectToOpenHands(retryStartTime = null) {
+  if (!retryStartTime) retryStartTime = Date.now();
   console.log(`[wrapper] Connecting to OpenHands WebSocket at ${OPENHANDS_WS_URL}...`);
   const ws = new WebSocket(OPENHANDS_WS_URL);
 
@@ -78,8 +79,14 @@ function connectToOpenHands() {
   });
 
   ws.on('close', () => {
-    console.log('[wrapper] WebSocket connection closed. Attempting to reconnect in 5s...');
-    setTimeout(connectToOpenHands, 5000);
+    const elapsed = (Date.now() - retryStartTime) / 1000;
+    if (elapsed < 30) {
+      console.log(`[wrapper] WebSocket connection closed. Attempting to reconnect in 5s... (elapsed: ${elapsed.toFixed(1)}s)`);
+      setTimeout(() => connectToOpenHands(retryStartTime), 5000);
+    } else {
+      console.error('[wrapper] Failed to connect to OpenHands WebSocket after 30 seconds. Exiting.');
+      process.exit(1);
+    }
   });
 
   ws.on('error', (err) => {
