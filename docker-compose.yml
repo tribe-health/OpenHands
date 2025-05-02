@@ -39,7 +39,7 @@ services:
       - OPENVSCODE_BIN=/openhands/.openvscode-server/bin/openvscode-server
 
       # --- OpenVSCode/Wrapper Sync ---
-      - OPENHANDS_WS_URL=${OPENHANDS_WS_URL:-ws://localhost:3000/ws}
+      - OPENHANDS_WS_URL=${OPENHANDS_WS_URL:-ws://127.0.0.1:3000/ws}
       - WRAPPER_WS_URL=${WRAPPER_WS_URL:-ws://localhost:8080/ws}
       - OPENVSCODE_ROOT=${OPENVSCODE_ROOT:-/opt/workspace_base}
       - OPENVSCODE_PORT=${OPENVSCODE_PORT:-40000}
