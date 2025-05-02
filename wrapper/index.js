@@ -6,6 +6,8 @@ const WebSocket = require('ws');
 const chokidar = require('chokidar');
 const path = require('path');
 const Redis = require('ioredis');
+const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
+const REDIS_PORT = 6379;
 
 // === Configuration ===
 const OPENVSCODE_BIN = process.env.OPENVSCODE_BIN || '/opt/openvscode-server/bin/openvscode-server';
