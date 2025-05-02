@@ -93,6 +93,12 @@ COPY --chown=openhands:app ./README.md ./README.md
 COPY --chown=openhands:app ./MANIFEST.in ./MANIFEST.in
 COPY --chown=openhands:app ./LICENSE ./LICENSE
 
+# --- Add wrapper code and install dependencies ---
+COPY --chown=openhands:app --chmod=770 ./wrapper ./wrapper
+WORKDIR /app/wrapper
+RUN npm install
+WORKDIR /app
+
 # This is run as "openhands" user, and will create __pycache__ with openhands:openhands ownership
 RUN python openhands/core/download.py # No-op to download assets
 # Add this line to set group ownership of all files/directories not already in "app" group

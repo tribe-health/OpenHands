@@ -4,6 +4,9 @@ from copy import deepcopy
 from logging import LoggerAdapter
 
 import socketio
+import os
+import json
+import websockets
 
 from openhands.controller.agent import Agent
 from openhands.core.config import AppConfig
@@ -73,6 +76,21 @@ class Session:
         self.loop = asyncio.get_event_loop()
         self.user_id = user_id
 
+        # Wrapper WebSocket config
+        self.wrapper_ws_url = os.environ.get("WRAPPER_WS_URL", "ws://localhost:8080/ws")
+        self._wrapper_ws_lock = asyncio.Lock()
+        self._wrapper_ws = None
+
+    async def _send_wrapper_ws(self, message: dict):
+        async with self._wrapper_ws_lock:
+            try:
+                if self._wrapper_ws is None or self._wrapper_ws.closed:
+                    self._wrapper_ws = await websockets.connect(self.wrapper_ws_url)
+                await self._wrapper_ws.send(json.dumps(message))
+                # Optionally, receive ack
+                # ack = await self._wrapper_ws.recv()
+            except Exception as e:
+                self.logger.error(f"Failed to send message to wrapper WebSocket: {e}")
     async def close(self):
         if self.sio:
             await self.sio.emit(
@@ -180,6 +198,20 @@ class Session:
             await self.send_error(f'Failed to create agent session: {err_class}')
             return
 
+        # After successful agent session start, notify wrapper of workspace directory
+        # Try to extract workspace directory from selected_repository, config, or agent_session
+        workspace_dir = None
+        if selected_repository and hasattr(selected_repository, "local_path"):
+            workspace_dir = selected_repository.local_path
+        elif hasattr(self.config, "workspace_base"):
+            workspace_dir = getattr(self.config, "workspace_base", None)
+        if not workspace_dir and hasattr(self.agent_session, "workspace_dir"):
+            workspace_dir = getattr(self.agent_session, "workspace_dir", None)
+        if workspace_dir:
+            await self.notify_wrapper_workspace_switch(workspace_dir)
+        else:
+            self.logger.warning("Could not determine workspace directory to notify wrapper.")
+
     def _create_llm(self, agent_cls: str | None) -> LLM:
         """
         Initialize LLM, extracted for testing.
@@ -189,6 +221,13 @@ class Session:
             config=self.config.get_llm_config_from_agent(agent_name),
             retry_listener=self._notify_on_llm_retry,
         )
+
+    async def notify_wrapper_workspace_switch(self, directory: str):
+        msg = {
+            "type": "project_switch",
+            "directory": directory
+        }
+        await self._send_wrapper_ws(msg)
 
     def _notify_on_llm_retry(self, retries: int, max: int) -> None:
         msg_id = 'STATUS$LLM_RETRY'

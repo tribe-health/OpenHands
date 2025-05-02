@@ -17,8 +17,9 @@ services:
       - .env
     container_name: openhands-app-${DATE:-}
     environment:
+      # --- OpenHands/Backend/Runtime ---
       - SANDBOX_RUNTIME_CONTAINER_IMAGE=${SANDBOX_RUNTIME_CONTAINER_IMAGE:-docker.all-hands.dev/all-hands-ai/runtime:0.35-nikolaik}
-      #- SANDBOX_USER_ID=${SANDBOX_USER_ID:-1234} # enable this only if you want a specific non-root sandbox user but you will have to manually adjust permissions of openhands-state for this user
+      #- SANDBOX_USER_ID=${SANDBOX_USER_ID:-1234}
       - WORKSPACE_MOUNT_PATH=${WORKSPACE_BASE:-$PWD/workspace}
       - SANDBOX_HOST=openhands.skytok.net
       - VSCODE_HOST=openhands.skytok.net
@@ -35,10 +36,17 @@ services:
       - DOCKER_CONTAINER=true
       - CUSTOM_DOMAIN_URL=https://openhands.skytok.net
       - VSCODE_PORT=${VSCODE_PORT:-40000}
-    restart: unless-stopped
+
+      # --- OpenVSCode/Wrapper Sync ---
+      - OPENHANDS_WS_URL=${OPENHANDS_WS_URL:-ws://localhost:3000/ws}
+      - WRAPPER_WS_URL=${WRAPPER_WS_URL:-ws://localhost:8080/ws}
+      - OPENVSCODE_ROOT=${OPENVSCODE_ROOT:-/opt/workspace_base}
+      - OPENVSCODE_PORT=${OPENVSCODE_PORT:-40000}
+      # --- For custom domain scenario, set CUSTOM_DOMAIN_URL, WRAPPER_WS_URL, and OPENHANDS_WS_URL appropriately ---
     ports:
-      - "3500:3000"
-      - "${VSCODE_PORT:-40000}:${VSCODE_PORT:-40000}"
+      - "3500:3000" # OpenHands API/UI
+      - "${VSCODE_PORT:-40000}:${VSCODE_PORT:-40000}" # OpenVSCode
+      # For custom domain, map ports as needed (e.g., via reverse proxy)
     extra_hosts:
       - "host.docker.internal:host-gateway"
       - "openhands.skytok.net:127.0.0.1"
@@ -49,3 +57,13 @@ services:
     pull_policy: build
     stdin_open: true
     tty: true
+
+# --- Usage Notes ---
+# For local development:
+#   - Set VSCODE_PORT, OPENHANDS_WS_URL, WRAPPER_WS_URL to localhost endpoints.
+#   - Access OpenHands at http://localhost:3000, OpenVSCode at http://localhost:${VSCODE_PORT}
+#
+# For custom domain:
+#   - Set CUSTOM_DOMAIN_URL to your domain (e.g., mydomain.com)
+#   - Set WRAPPER_WS_URL and OPENHANDS_WS_URL to public WebSocket endpoints (e.g., wss://mydomain.com/ws)
+#   - Use a reverse proxy (nginx, traefik, etc.) to route traffic to the correct container ports.
