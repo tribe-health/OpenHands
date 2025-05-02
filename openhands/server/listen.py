@@ -32,4 +32,4 @@ base_app.add_middleware(
 )
 base_app.middleware('http')(AttachConversationMiddleware(base_app))
 
-app = socketio.ASGIApp(sio, other_asgi_app=base_app)
+app = socketio.ASGIApp(sio, other_asgi_app=base_app, socketio_path='/ws')

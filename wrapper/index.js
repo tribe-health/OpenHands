@@ -2,12 +2,15 @@
 // Main entry point for launching OpenVSCode as a child process and connecting to OpenHands via WebSocket.
 
 const { spawn } = require('child_process');
-const WebSocket = require('ws');
 const chokidar = require('chokidar');
 const path = require('path');
 const Redis = require('ioredis');
 const REDIS_HOST = process.env.REDIS_HOST || 'localhost';
 const REDIS_PORT = 6379;
+
+// Redis channels for communication
+const WRAPPER_EVENTS_CHANNEL = 'openhands:wrapper:events';
+const SERVER_EVENTS_CHANNEL = 'openhands:server:events';
 
 // === Configuration ===
 const OPENVSCODE_BIN = process.env.OPENVSCODE_BIN || '/opt/openvscode-server/bin/openvscode-server';
@@ -50,53 +53,41 @@ function restartOpenVSCode(newWorkspaceDir) {
   launchOpenVSCode(newWorkspaceDir);
 }
 
-// === Connect to OpenHands WebSocket server ===
-function connectToOpenHands(retryStartTime = null) {
-  if (!retryStartTime) retryStartTime = Date.now();
-  console.log(`[wrapper] Connecting to OpenHands WebSocket at ${OPENHANDS_WS_URL}...`);
-  const ws = new WebSocket(OPENHANDS_WS_URL);
+// === Redis-based communication ===
+function setupRedisCommunication() {
+ const pub = new Redis({ host: REDIS_HOST, port: REDIS_PORT });
+ const sub = new Redis({ host: REDIS_HOST, port: REDIS_PORT });
 
-  ws.on('open', () => {
-    console.log('[wrapper] Connected to OpenHands WebSocket.');
-    // Optionally, send a registration or hello message here
-  });
+ // Subscribe to server events (e.g., project_switch, workspace_reload)
+ sub.subscribe(SERVER_EVENTS_CHANNEL, (err, count) => {
+   if (err) {
+     console.error('[wrapper] Redis subscribe error:', err);
+     process.exit(1);
+   }
+   console.log(`[wrapper] Subscribed to Redis channel '${SERVER_EVENTS_CHANNEL}' for server events.`);
+ });
 
-  ws.on('message', (data) => {
-    // Handle messages from OpenHands (e.g., file generation, project switch)
-    console.log('[wrapper] Received message from OpenHands:', data.toString());
-    try {
-      const msg = JSON.parse(data.toString());
-      if (msg.type === 'project_switch' || msg.type === 'workspace_reload') {
-        const newDir = msg.directory;
-        if (newDir && typeof newDir === 'string') {
-          console.log(`[wrapper] Received workspace directory change: ${newDir}`);
-          restartOpenVSCode(newDir);
-        } else {
-          console.warn('[wrapper] Directory change event missing "directory" field.');
-        }
-      }
-      // Handle other message types as needed
-    } catch (err) {
-      console.error('[wrapper] Error parsing message from OpenHands:', err);
-    }
-  });
+ sub.on('message', (channel, message) => {
+   if (channel === SERVER_EVENTS_CHANNEL) {
+     try {
+       const msg = JSON.parse(message);
+       if (msg.type === 'project_switch' || msg.type === 'workspace_reload') {
+         const newDir = msg.directory;
+         if (newDir && typeof newDir === 'string') {
+           console.log(`[wrapper] Received workspace directory change: ${newDir}`);
+           restartOpenVSCode(newDir);
+         } else {
+           console.warn('[wrapper] Directory change event missing "directory" field.');
+         }
+       }
+       // Handle other message types as needed
+     } catch (err) {
+       console.error('[wrapper] Error parsing message from server via Redis:', err);
+     }
+   }
+ });
 
-  ws.on('close', () => {
-    const elapsed = (Date.now() - retryStartTime) / 1000;
-    if (elapsed < 30) {
-      console.log(`[wrapper] WebSocket connection closed. Attempting to reconnect in 5s... (elapsed: ${elapsed.toFixed(1)}s)`);
-      setTimeout(() => connectToOpenHands(retryStartTime), 5000);
-    } else {
-      console.error('[wrapper] Failed to connect to OpenHands WebSocket after 30 seconds. Exiting.');
-      process.exit(1);
-    }
-  });
-
-  ws.on('error', (err) => {
-    console.error('[wrapper] WebSocket error:', err);
-  });
-
-  return ws;
+ return pub;
 }
 
 // === Watch for file changes in the shared root directory ===
@@ -109,13 +100,13 @@ function setupFileWatcher(ws) {
 
   watcher
     .on('add', filePath => {
-      ws && ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ type: 'file_add', path: filePath }));
+      pub.publish(WRAPPER_EVENTS_CHANNEL, JSON.stringify({ type: 'file_add', path: filePath }));
     })
     .on('change', filePath => {
-      ws && ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ type: 'file_change', path: filePath }));
+      pub.publish(WRAPPER_EVENTS_CHANNEL, JSON.stringify({ type: 'file_change', path: filePath }));
     })
     .on('unlink', filePath => {
-      ws && ws.readyState === WebSocket.OPEN && ws.send(JSON.stringify({ type: 'file_unlink', path: filePath }));
+      pub.publish(WRAPPER_EVENTS_CHANNEL, JSON.stringify({ type: 'file_unlink', path: filePath }));
     });
 
   console.log(`[wrapper] Watching for file changes in ${OPENVSCODE_ROOT}`);
@@ -158,7 +149,7 @@ async function main() {
   // Launch OpenVSCode
   launchOpenVSCode(currentWorkspaceDir);
 
-  // Wait for server "ready" message via Redis before connecting to WebSocket
+  // Wait for server "ready" message via Redis before starting communication
   try {
     await waitForServerReady();
   } catch (err) {
@@ -166,9 +157,9 @@ async function main() {
     process.exit(1);
   }
 
-  // Connect to OpenHands and set up file watcher
-  let ws = connectToOpenHands();
-  setupFileWatcher(ws);
+  // Set up Redis-based communication and file watcher
+  const pub = setupRedisCommunication();
+  setupFileWatcher(pub);
 }
 
 main();
