@@ -36,6 +36,7 @@ services:
       - DOCKER_CONTAINER=true
       - CUSTOM_DOMAIN_URL=https://openhands.skytok.net
       - VSCODE_PORT=${VSCODE_PORT:-40000}
+      - OPENVSCODE_BIN=/openhands/.openvscode-server/bin/openvscode-server
 
       # --- OpenVSCode/Wrapper Sync ---
       - OPENHANDS_WS_URL=${OPENHANDS_WS_URL:-ws://localhost:3000/ws}
