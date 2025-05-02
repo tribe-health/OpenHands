@@ -5,7 +5,6 @@
 const { spawn } = require('child_process');
 const chokidar = require('chokidar');
 const path = require('path');
-const path = require('path');
 
 // Check if we're in custom domain mode
 const CUSTOM_DOMAIN = !!process.env.CUSTOM_DOMAIN_URL;

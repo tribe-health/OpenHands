@@ -9,6 +9,7 @@
   "dependencies": {
     "chokidar": "^3.5.3",
     "ioredis": "^5.6.1",
+    "path": "^0.12.7",
     "ws": "^8.15.0"
   },
   "author": "",
