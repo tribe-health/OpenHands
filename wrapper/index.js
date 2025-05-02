@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const WebSocket = require('ws');
 const chokidar = require('chokidar');
 const path = require('path');
+const Redis = require('ioredis');
 
 // === Configuration ===
 const OPENVSCODE_BIN = process.env.OPENVSCODE_BIN || '/opt/openvscode-server/bin/openvscode-server';
