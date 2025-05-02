@@ -10,6 +10,14 @@ RUN npm ci
 COPY ./frontend ./
 RUN npm run build
 
+FROM node:21.7.2-bookworm-slim AS wrapper-builder
+
+WORKDIR /app/wrapper
+COPY ./wrapper/package.json ./wrapper/package-lock.json ./
+RUN npm install
+COPY ./wrapper ./
+RUN npm run build || true # If you have a build step, otherwise ignore
+
 FROM python:3.12.3-slim AS backend-builder
 
 WORKDIR /app
@@ -93,10 +101,8 @@ COPY --chown=openhands:app ./README.md ./README.md
 COPY --chown=openhands:app ./MANIFEST.in ./MANIFEST.in
 COPY --chown=openhands:app ./LICENSE ./LICENSE
 
-# --- Add wrapper code and install dependencies ---
-COPY --chown=openhands:app --chmod=770 ./wrapper ./wrapper
-WORKDIR /app/wrapper
-RUN npm install
+# --- Copy built wrapper from wrapper-builder stage ---
+COPY --chown=openhands:app --from=wrapper-builder /app/wrapper /app/wrapper
 WORKDIR /app
 
 # This is run as "openhands" user, and will create __pycache__ with openhands:openhands ownership
