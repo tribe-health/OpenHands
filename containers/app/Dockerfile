@@ -116,6 +116,14 @@ COPY --chown=openhands:app --chmod=770 ./containers/app/entrypoint.sh /app/entry
 
 USER root
 
+# --- Install nodejs and npm for wrapper runtime ---
+RUN apt-get update -y && \
+    apt-get install -y nodejs npm && \
+    rm -rf /var/lib/apt/lists/*
+
+# --- Ensure websockets is installed in the Python environment ---
+RUN . /app/.venv/bin/activate && pip install websockets
+
 WORKDIR /app
 
 COPY --chmod=770 ./containers/app/start_openvscode.sh /app/start_openvscode.sh
