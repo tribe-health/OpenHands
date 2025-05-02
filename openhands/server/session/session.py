@@ -3,10 +3,9 @@ import time
 from copy import deepcopy
 from logging import LoggerAdapter
 
-import socketio
 import os
 import json
-import websockets
+import redis
 
 from openhands.controller.agent import Agent
 from openhands.core.config import AppConfig
@@ -76,21 +75,21 @@ class Session:
         self.loop = asyncio.get_event_loop()
         self.user_id = user_id
 
-        # Wrapper WebSocket config
-        self.wrapper_ws_url = os.environ.get("WRAPPER_WS_URL", "ws://localhost:8080/ws")
-        self._wrapper_ws_lock = asyncio.Lock()
-        self._wrapper_ws = None
+        # Redis communication config
+        self.redis_host = os.environ.get("REDIS_HOST", "localhost")
+        self.redis_port = 6379
+        self._redis_client = None
+        self._redis_lock = asyncio.Lock()
+        self.SERVER_EVENTS_CHANNEL = 'openhands:server:events'
 
-    async def _send_wrapper_ws(self, message: dict):
-        async with self._wrapper_ws_lock:
+    async def _send_wrapper_message(self, message: dict):
+        async with self._redis_lock:
             try:
-                if self._wrapper_ws is None or self._wrapper_ws.closed:
-                    self._wrapper_ws = await websockets.connect(self.wrapper_ws_url)
-                await self._wrapper_ws.send(json.dumps(message))
-                # Optionally, receive ack
-                # ack = await self._wrapper_ws.recv()
+                if self._redis_client is None:
+                    self._redis_client = redis.Redis(host=self.redis_host, port=self.redis_port)
+                self._redis_client.publish(self.SERVER_EVENTS_CHANNEL, json.dumps(message))
             except Exception as e:
-                self.logger.error(f"Failed to send message to wrapper WebSocket: {e}")
+                self.logger.error(f"Failed to send message to wrapper via Redis: {e}")
     async def close(self):
         if self.sio:
             await self.sio.emit(
@@ -101,6 +100,12 @@ class Session:
                 to=ROOM_KEY.format(sid=self.sid),
             )
         self.is_alive = False
+        
+        # Close Redis connection if open
+        if self._redis_client is not None:
+            self._redis_client.close()
+            self._redis_client = None
+            
         await self.agent_session.close()
 
     async def initialize_agent(
@@ -227,7 +232,7 @@ class Session:
             "type": "project_switch",
             "directory": directory
         }
-        await self._send_wrapper_ws(msg)
+        await self._send_wrapper_message(msg)
 
     def _notify_on_llm_retry(self, retries: int, max: int) -> None:
         msg_id = 'STATUS$LLM_RETRY'
@@ -309,7 +314,7 @@ class Session:
             self.last_active_ts = int(time.time())
             return True
         except RuntimeError as e:
-            self.logger.error(f'Error sending data to websocket: {str(e)}')
+            self.logger.error(f'Error sending data to client: {str(e)}')
             self.is_alive = False
             return False
 

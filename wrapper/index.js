@@ -16,7 +16,7 @@ const SERVER_EVENTS_CHANNEL = 'openhands:server:events';
 const OPENVSCODE_BIN = process.env.OPENVSCODE_BIN || '/opt/openvscode-server/bin/openvscode-server';
 const OPENVSCODE_PORT = process.env.OPENVSCODE_PORT || 3100;
 const OPENVSCODE_ROOT = process.env.OPENVSCODE_ROOT || path.resolve(__dirname, '..');
-const OPENHANDS_WS_URL = process.env.OPENHANDS_WS_URL || 'ws://localhost:8080/ws';
+// WebSocket URL no longer needed as we use Redis for all communication
 
 // === Launch OpenVSCode as a child process ===
 let openVSCodeProcess = null;
@@ -91,7 +91,7 @@ function setupRedisCommunication() {
 }
 
 // === Watch for file changes in the shared root directory ===
-function setupFileWatcher(ws) {
+function setupFileWatcher(pub) {
   const watcher = chokidar.watch(OPENVSCODE_ROOT, {
     ignored: /(^|[\/\\])\../, // ignore dotfiles
     persistent: true,
@@ -128,7 +128,7 @@ async function waitForServerReady() {
       if (channel === 'openhands:ready' && message === 'ready') {
         if (!readyReceived) {
           readyReceived = true;
-          console.log('[wrapper] Received "ready" message from server via Redis. Proceeding to connect to OpenHands WebSocket.');
+          console.log('[wrapper] Received "ready" message from server via Redis. Proceeding with Redis-based communication.');
           redis.disconnect();
           resolve();
         }
